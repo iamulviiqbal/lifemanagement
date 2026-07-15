@@ -36,7 +36,27 @@ Trello tərzi lövhə:
 - Taska klik etdikdə pop-up açılır: ad, təsvir, deadline, prioritet, sütun dəyişmək və silmək
 - "Tamamlanmış sütun" işarəsi — bu sütundakı tasklar termometrə təsir etmir (məs. "Bitdi")
 
-## Quraşdırma və işə salma
+## Veb versiya (GitHub Pages — pulsuz, heç nə yükləmədən)
+
+Tətbiq `docs/` qovluğundan birbaşa brauzerdə işləyir. GitHub Pages ilə pulsuz yayımlamaq üçün:
+
+1. GitHub-da repozitoriyanı açın → **Settings** → **Pages**
+2. **Source:** "Deploy from a branch" seçin
+3. **Branch:** istifadə etdiyiniz branch-ı seçin, qovluq olaraq **/docs** seçin → **Save**
+4. 1-2 dəqiqə sonra sayt hazır olur: `https://<istifadəçi-adı>.github.io/lifemanagement/`
+
+Qeyd: pulsuz GitHub hesabında Pages yalnız **public** repozitoriyalarda işləyir.
+Tasklarınız repozitoriyada yox, brauzerin lokal yaddaşında (localStorage) saxlanıldığı
+üçün repozitoriyanı public etmək məlumatlarınızı açıq etmir.
+
+### Veb versiyada məlumatların saxlanması
+
+- Tasklar brauzerin **localStorage** yaddaşında saxlanılır — yəni hər brauzer/kompüter özünə görə ayrıdır.
+- Sol paneldəki **⤓ Yedəklə** düyməsi bütün məlumatları JSON faylı kimi endirir,
+  **⤒ Bərpa et** isə həmin faylı geri yükləyir. Bununla iş və ev kompüteri arasında
+  məlumat daşıya və brauzer təmizlənməsindən qoruya bilərsiniz.
+
+## Desktop versiya — quraşdırma və işə salma
 
 ```bash
 npm install
@@ -51,7 +71,7 @@ npm run dist
 
 Windows üçün NSIS installer, macOS üçün .app, Linux üçün AppImage yaradır (`dist/` qovluğunda).
 
-## Məlumatların saxlanması
+## Desktop versiyada məlumatların saxlanması
 
 Bütün tasklar lokal olaraq JSON faylında saxlanılır:
 `%APPDATA%/Life Management/data.json` (Windows) və ya
@@ -60,6 +80,6 @@ Bütün tasklar lokal olaraq JSON faylında saxlanılır:
 ## Font haqqında
 
 Anthropic-in istifadə etdiyi **Styrene** fontu kommersial lisenziyalıdır və tətbiqlə
-paylana bilməz. Lisenziyanız varsa, font fayllarını `src/fonts/` qovluğuna qoyub
-`src/styles.css` faylının əvvəlindəki `@font-face` bloklarını aktivləşdirin.
+paylana bilməz. Lisenziyanız varsa, font fayllarını `docs/fonts/` qovluğuna qoyub
+`docs/styles.css` faylının əvvəlindəki `@font-face` bloklarını aktivləşdirin.
 Əks halda tətbiq vizual olaraq ən yaxın sistem fontlarını (SF Pro / Segoe UI) istifadə edir.

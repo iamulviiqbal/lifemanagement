@@ -555,6 +555,46 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !modalEl.classList.contains('hidden')) closeTaskModal();
 });
 
+// ---------------- Yedəkləmə / Bərpa ----------------
+
+function exportData() {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lifemanagement-yedek-' + todayStr() + '.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      if (!data || typeof data !== 'object' || !data.boards) {
+        alert('Bu fayl Life Management yedəyi deyil.');
+        return;
+      }
+      if (!confirm('Mövcud bütün tasklar yedəkdəki məlumatlarla əvəz olunacaq. Davam edilsin?')) return;
+      CHANNELS.forEach(ch => { if (!data.boards[ch.id]) data.boards[ch.id] = defaultBoard(); });
+      state = data;
+      saveState();
+      showView('home');
+      alert('Yedək uğurla bərpa olundu.');
+    } catch (e) {
+      alert('Fayl oxuna bilmədi: düzgün JSON deyil.');
+    }
+  };
+  reader.readAsText(file);
+}
+
+document.getElementById('export-btn').addEventListener('click', exportData);
+document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
+document.getElementById('import-file').addEventListener('change', e => {
+  if (e.target.files[0]) importData(e.target.files[0]);
+  e.target.value = '';
+});
+
 // ---------------- Günlük təzələnmə ----------------
 
 // Gecə yarısı keçəndə ana səhifə avtomatik yenidən hesablanır

@@ -43,7 +43,7 @@ function createWindow() {
   });
 
   win.setMenuBarVisibility(false);
-  win.loadFile(path.join(__dirname, 'src', 'index.html'));
+  win.loadFile(path.join(__dirname, 'docs', 'index.html'));
 }
 
 ipcMain.handle('data:load', () => loadData());

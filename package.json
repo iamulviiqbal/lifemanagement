@@ -20,7 +20,7 @@
     "files": [
       "main.js",
       "preload.js",
-      "src/**/*"
+      "docs/**/*"
     ],
     "win": {
       "target": "nsis"

@@ -53,8 +53,27 @@ Tasklarınız repozitoriyada yox, brauzerin lokal yaddaşında (localStorage) sa
 
 - Tasklar brauzerin **localStorage** yaddaşında saxlanılır — yəni hər brauzer/kompüter özünə görə ayrıdır.
 - Sol paneldəki **⤓ Yedəklə** düyməsi bütün məlumatları JSON faylı kimi endirir,
-  **⤒ Bərpa et** isə həmin faylı geri yükləyir. Bununla iş və ev kompüteri arasında
-  məlumat daşıya və brauzer təmizlənməsindən qoruya bilərsiniz.
+  **⤒ Bərpa et** isə həmin faylı geri yükləyir.
+
+### Cihazlar arası sinxronizasiya (pulsuz)
+
+Sol paneldəki **☁ Sinxronizasiya** düyməsi ilə bütün cihazlarınız eyni məlumatları görə bilər.
+Məlumatlar sizin GitHub hesabınızdakı **gizli Gist**-də saxlanılır — pulsuz və yalnız sizə görünür.
+
+Qurulma (bir dəfəlik):
+
+1. GitHub-da **Settings → Developer settings → Personal access tokens → Tokens (classic)**
+2. **Generate new token (classic)** → ad yazın → icazələrdən yalnız **gist** seçin → yaradın
+3. Yaranan `ghp_...` tokeni kopyalayın
+4. Saytda **☁ Sinxronizasiya** → tokeni yapışdırın → **Qoşul**
+5. Eyni tokeni digər cihazlarınızda da bir dəfə daxil edin — hamısı avtomatik sinxronlaşacaq
+
+Sinxronizasiya avtomatikdir: hər dəyişiklik bir neçə saniyə içində buluda göndərilir,
+başqa cihazdakı yeniliklər isə pəncərə fokusa gələndə və hər 90 saniyədən bir yoxlanılır.
+Münaqişə halında ən son dəyişiklik qalib gəlir (last-write-wins).
+
+⚠️ Token brauzerin yaddaşında saxlanılır. Ortaq istifadə olunan kompüterdə
+qoşulmayın və tokenə yalnız **gist** icazəsi verin.
 
 ## Desktop versiya — quraşdırma və işə salma
 

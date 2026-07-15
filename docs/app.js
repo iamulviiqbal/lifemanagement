@@ -54,15 +54,21 @@ async function loadState() {
   state = data;
 }
 
+function persistLocal() {
+  if (window.api && window.api.saveData) {
+    window.api.saveData(JSON.parse(JSON.stringify(state)));
+  } else {
+    localStorage.setItem('lifemanagement-data', JSON.stringify(state));
+  }
+}
+
 let saveTimer = null;
 function saveState() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
-    if (window.api && window.api.saveData) {
-      window.api.saveData(JSON.parse(JSON.stringify(state)));
-    } else {
-      localStorage.setItem('lifemanagement-data', JSON.stringify(state));
-    }
+    state.updatedAt = Date.now();
+    persistLocal();
+    schedulePush();
   }, 150);
 }
 
@@ -185,6 +191,12 @@ function showView(viewId) {
   if (el) el.classList.add('active');
   if (viewId === 'home') renderHome();
   else renderBoard(viewId);
+  updateNavCounts();
+}
+
+function renderCurrent() {
+  if (activeView === 'home') renderHome();
+  else renderBoard(activeView);
   updateNavCounts();
 }
 
@@ -555,6 +567,164 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !modalEl.classList.contains('hidden')) closeTaskModal();
 });
 
+// ---------------- Cihazlar arası sinxronizasiya (GitHub Gist) ----------------
+
+const GIST_FILENAME = 'lifemanagement-data.json';
+const GIST_DESC = 'Life Management — task məlumatları (tətbiq tərəfindən avtomatik idarə olunur)';
+
+function syncCfg() {
+  try { return JSON.parse(localStorage.getItem('lifemanagement-sync')) || {}; } catch (e) { return {}; }
+}
+function setSyncCfg(cfg) { localStorage.setItem('lifemanagement-sync', JSON.stringify(cfg)); }
+function syncConnected() { const c = syncCfg(); return !!(c.token && c.gistId); }
+
+let syncBusy = false;
+let pushTimer = null;
+let lastSyncTime = null;
+
+async function ghFetch(path, opts = {}) {
+  const res = await fetch('https://api.github.com' + path, {
+    method: opts.method || 'GET',
+    headers: {
+      'Accept': 'application/vnd.github+json',
+      'Authorization': 'Bearer ' + syncCfg().token
+    },
+    body: opts.body || undefined
+  });
+  if (!res.ok) throw new Error('GitHub cavabı: ' + res.status);
+  return res.json();
+}
+
+function setSyncStatus(text, isError) {
+  const el = document.getElementById('sync-status');
+  el.textContent = text;
+  el.classList.toggle('error', !!isError);
+}
+
+function touchSyncTime() {
+  lastSyncTime = new Date();
+  updateSyncIndicator();
+}
+
+function updateSyncIndicator(errorText) {
+  const el = document.getElementById('sync-indicator');
+  if (errorText) { el.textContent = '☁ ' + errorText; el.classList.add('error'); return; }
+  el.classList.remove('error');
+  if (!syncConnected()) { el.textContent = ''; return; }
+  el.textContent = '☁ Sinxron aktiv' + (lastSyncTime
+    ? ' · ' + lastSyncTime.getHours() + ':' + String(lastSyncTime.getMinutes()).padStart(2, '0')
+    : '');
+}
+
+async function syncPushNow() {
+  if (!syncConnected()) return;
+  await ghFetch('/gists/' + syncCfg().gistId, {
+    method: 'PATCH',
+    body: JSON.stringify({ files: { [GIST_FILENAME]: { content: JSON.stringify(state) } } })
+  });
+  touchSyncTime();
+}
+
+function schedulePush() {
+  if (!syncConnected()) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(() => {
+    syncPushNow().catch(() => updateSyncIndicator('göndərmə alınmadı'));
+  }, 2500);
+}
+
+async function syncPull() {
+  if (!syncConnected() || syncBusy) return;
+  syncBusy = true;
+  try {
+    const gist = await ghFetch('/gists/' + syncCfg().gistId);
+    const file = gist.files && gist.files[GIST_FILENAME];
+    if (!file) return;
+    let content = file.content;
+    if (file.truncated) content = await (await fetch(file.raw_url)).text();
+    const remote = JSON.parse(content);
+    if (!remote || !remote.boards) return;
+
+    if ((remote.updatedAt || 0) > (state.updatedAt || 0)) {
+      // Buluddakı məlumat daha yenidir — onu götür
+      CHANNELS.forEach(ch => { if (!remote.boards[ch.id]) remote.boards[ch.id] = defaultBoard(); });
+      state = remote;
+      persistLocal();
+      renderCurrent();
+    } else if ((state.updatedAt || 0) > (remote.updatedAt || 0)) {
+      // Lokal məlumat daha yenidir — buluda göndər
+      await syncPushNow();
+    }
+    touchSyncTime();
+  } catch (e) {
+    updateSyncIndicator('sinxron xətası');
+  } finally {
+    syncBusy = false;
+  }
+}
+
+async function connectSync() {
+  const token = document.getElementById('sync-token').value.trim();
+  if (!token) { setSyncStatus('Token daxil edin.', true); return; }
+  setSyncCfg({ token });
+  setSyncStatus('Yoxlanılır...');
+  try {
+    // Əvvəlki cihazda yaradılmış gist varsa, tap
+    const gists = await ghFetch('/gists?per_page=100');
+    let gist = gists.find(g => g.files && g.files[GIST_FILENAME]);
+    if (gist) {
+      setSyncCfg({ token, gistId: gist.id });
+      await syncPull();
+      setSyncStatus('Qoşuldu — buluddakı mövcud məlumatlar tapıldı və sinxronlaşdırıldı.');
+    } else {
+      gist = await ghFetch('/gists', {
+        method: 'POST',
+        body: JSON.stringify({
+          description: GIST_DESC,
+          public: false,
+          files: { [GIST_FILENAME]: { content: JSON.stringify(state) } }
+        })
+      });
+      setSyncCfg({ token, gistId: gist.id });
+      touchSyncTime();
+      setSyncStatus('Qoşuldu — məlumatlarınız buluda yükləndi. İndi bu tokeni digər cihazlarda da daxil edin.');
+    }
+    document.getElementById('sync-disconnect').classList.remove('hidden');
+    updateSyncIndicator();
+  } catch (e) {
+    setSyncCfg({});
+    setSyncStatus('Xəta: token düzgün deyil, "gist" icazəsi yoxdur və ya şəbəkə problemi var. (' + e.message + ')', true);
+    updateSyncIndicator();
+  }
+}
+
+function disconnectSync() {
+  setSyncCfg({});
+  document.getElementById('sync-token').value = '';
+  document.getElementById('sync-disconnect').classList.add('hidden');
+  setSyncStatus('Bu cihaz sinxronizasiyadan ayrıldı. Buluddakı məlumatlar silinmir.');
+  updateSyncIndicator();
+}
+
+const syncModal = document.getElementById('sync-modal');
+
+function openSyncModal() {
+  const connected = syncConnected();
+  document.getElementById('sync-disconnect').classList.toggle('hidden', !connected);
+  setSyncStatus(connected ? 'Bu cihaz qoşulub. Sinxronizasiya avtomatik işləyir.' : '');
+  syncModal.classList.remove('hidden');
+}
+
+document.getElementById('sync-btn').addEventListener('click', openSyncModal);
+document.getElementById('sync-close').addEventListener('click', () => syncModal.classList.add('hidden'));
+document.getElementById('sync-connect').addEventListener('click', connectSync);
+document.getElementById('sync-disconnect').addEventListener('click', disconnectSync);
+syncModal.addEventListener('click', e => { if (e.target === syncModal) syncModal.classList.add('hidden'); });
+
+// Başqa cihazdakı dəyişiklikləri görmək üçün müntəzəm yoxlama
+setInterval(() => { if (!document.hidden) syncPull(); }, 90 * 1000);
+window.addEventListener('focus', () => syncPull());
+
 // ---------------- Yedəkləmə / Bərpa ----------------
 
 function exportData() {
@@ -602,9 +772,7 @@ let lastDay = todayStr();
 setInterval(() => {
   if (todayStr() !== lastDay) {
     lastDay = todayStr();
-    if (activeView === 'home') renderHome();
-    else renderBoard(activeView);
-    updateNavCounts();
+    renderCurrent();
   }
 }, 60 * 1000);
 
@@ -616,4 +784,6 @@ setInterval(() => {
   ensureBoardViews();
   document.getElementById('today-date').textContent = formatFullDate(new Date());
   showView('home');
+  updateSyncIndicator();
+  if (syncConnected()) syncPull();
 })();

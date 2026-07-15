@@ -26,6 +26,8 @@
         <button class="tool-btn" id="import-btn" title="Əvvəl endirdiyin yedək faylını geri yüklə">⤒ Bərpa et</button>
         <input type="file" id="import-file" accept=".json,application/json" hidden>
       </div>
+      <button class="tool-btn sync-btn" id="sync-btn" title="Cihazlar arası sinxronizasiya">☁ Sinxronizasiya</button>
+      <div class="sync-indicator" id="sync-indicator"></div>
       <div class="sidebar-footer" id="today-date"></div>
     </aside>
 
@@ -80,6 +82,40 @@
       <div class="modal-footer">
         <button class="btn btn-danger" id="modal-delete">Sil</button>
         <button class="btn btn-primary" id="modal-save">Yadda saxla</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sinxronizasiya pop-up -->
+  <div class="modal-overlay hidden" id="sync-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-static-title">Cihazlar arası sinxronizasiya</div>
+        <button class="icon-btn modal-close" id="sync-close" title="Bağla">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="sync-info">
+          Tasklarınız GitHub hesabınızdakı <strong>gizli Gist</strong>-də saxlanılır —
+          pulsuz və yalnız sizə görünür. Qoşulduqdan sonra bütün cihazlarda eyni
+          məlumatları görəcəksiniz.
+        </p>
+        <ol class="sync-steps">
+          <li>GitHub-da: <strong>Settings → Developer settings → Personal access tokens → Tokens (classic)</strong></li>
+          <li><strong>Generate new token (classic)</strong> düyməsinə basın</li>
+          <li>Ad yazın (məs. "lifemanagement"), müddət seçin (No expiration olar)</li>
+          <li>İcazələrdən yalnız <strong>gist</strong> xanasını işarələyin → <strong>Generate token</strong></li>
+          <li>Yaranan <code>ghp_...</code> kodunu kopyalayıb aşağıya yapışdırın</li>
+        </ol>
+        <label class="field">
+          <span class="field-label">GitHub Token</span>
+          <input type="password" id="sync-token" placeholder="ghp_...">
+        </label>
+        <div class="sync-status" id="sync-status"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger hidden" id="sync-disconnect">Ayır</button>
+        <span></span>
+        <button class="btn btn-primary" id="sync-connect">Qoşul</button>
       </div>
     </div>
   </div>

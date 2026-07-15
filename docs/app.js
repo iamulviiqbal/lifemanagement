@@ -51,6 +51,7 @@ async function loadState() {
   if (!data || !data.boards) data = defaultData();
   // Yeni kanal əlavə olunubsa, lövhəsini yarat
   CHANNELS.forEach(ch => { if (!data.boards[ch.id]) data.boards[ch.id] = defaultBoard(); });
+  if (!data.integrations) data.integrations = {};
   state = data;
 }
 
@@ -293,33 +294,75 @@ function ensureBoardViews() {
         <h1>${ch.name}</h1>
         <p class="subtitle">${ch.desc}</p>
       </header>
+      <div class="kanban-toolbar" id="toolbar-${ch.id}"></div>
       <div class="board" data-channel="${ch.id}"></div>
     `;
     mainEl.appendChild(section);
   });
 }
 
+function renderToolbar(channelId) {
+  const bar = document.getElementById('toolbar-' + channelId);
+  const cfg = channelIntegration(channelId);
+  const board = state.boards[channelId];
+  bar.innerHTML = '';
+
+  const intBtn = document.createElement('button');
+  intBtn.className = 'tool-btn';
+  intBtn.textContent = '🔗 İnteqrasiya';
+  intBtn.title = 'Bu kanalı Trello və ya Notion-a bağla';
+  intBtn.addEventListener('click', () => openIntModal(channelId));
+  bar.appendChild(intBtn);
+
+  if (cfg) {
+    const refreshBtn = document.createElement('button');
+    refreshBtn.className = 'tool-btn';
+    refreshBtn.textContent = '⟳ Yenilə';
+    refreshBtn.addEventListener('click', async () => {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = '⟳ Yenilənir...';
+      await externalPull(channelId, true);
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '⟳ Yenilə';
+    });
+    bar.appendChild(refreshBtn);
+
+    const info = document.createElement('span');
+    info.className = 'toolbar-info';
+    const src = cfg.type === 'trello' ? 'Trello' : 'Notion';
+    const time = board.fetchedAt
+      ? new Date(board.fetchedAt).getHours() + ':' + String(new Date(board.fetchedAt).getMinutes()).padStart(2, '0')
+      : '—';
+    info.textContent = `${src}-dan oxunur · son yenilənmə ${time} · redaktə üçün taska klik edin (${src}-da açılır)`;
+    bar.appendChild(info);
+  }
+}
+
 function renderBoard(channelId) {
   const boardEl = document.querySelector(`.board[data-channel="${channelId}"]`);
   const board = state.boards[channelId];
+  const external = !!board.external;
+  renderToolbar(channelId);
   boardEl.innerHTML = '';
 
   board.columns.forEach(col => {
-    boardEl.appendChild(buildColumn(channelId, col));
+    boardEl.appendChild(buildColumn(channelId, col, external));
   });
 
-  const addBtn = document.createElement('button');
-  addBtn.className = 'add-column-btn';
-  addBtn.textContent = '+ Yeni sütun';
-  addBtn.addEventListener('click', () => {
-    board.columns.push({ id: uid(), title: 'Yeni sütun', done: false, tasks: [] });
-    saveState();
-    renderBoard(channelId);
-  });
-  boardEl.appendChild(addBtn);
+  if (!external) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-column-btn';
+    addBtn.textContent = '+ Yeni sütun';
+    addBtn.addEventListener('click', () => {
+      board.columns.push({ id: uid(), title: 'Yeni sütun', done: false, tasks: [] });
+      saveState();
+      renderBoard(channelId);
+    });
+    boardEl.appendChild(addBtn);
+  }
 }
 
-function buildColumn(channelId, col) {
+function buildColumn(channelId, col, external) {
   const board = state.boards[channelId];
   const colEl = document.createElement('div');
   colEl.className = 'column';
@@ -332,35 +375,44 @@ function buildColumn(channelId, col) {
   const titleInput = document.createElement('input');
   titleInput.className = 'column-title';
   titleInput.value = col.title;
-  titleInput.title = 'Adı dəyişmək üçün klikləyin';
-  titleInput.addEventListener('change', () => {
-    col.title = titleInput.value.trim() || 'Sütun';
-    titleInput.value = col.title;
-    saveState();
-  });
-  titleInput.addEventListener('keydown', e => { if (e.key === 'Enter') titleInput.blur(); });
+  if (external) {
+    titleInput.readOnly = true;
+    titleInput.title = 'Sütun xarici sistemdən oxunur';
+  } else {
+    titleInput.title = 'Adı dəyişmək üçün klikləyin';
+    titleInput.addEventListener('change', () => {
+      col.title = titleInput.value.trim() || 'Sütun';
+      titleInput.value = col.title;
+      saveState();
+    });
+    titleInput.addEventListener('keydown', e => { if (e.key === 'Enter') titleInput.blur(); });
+  }
 
   const count = document.createElement('span');
   count.className = 'column-count';
   count.textContent = col.tasks.length;
 
-  const delBtn = document.createElement('button');
-  delBtn.className = 'icon-btn danger';
-  delBtn.title = 'Sütunu sil';
-  delBtn.textContent = '✕';
-  delBtn.addEventListener('click', () => {
-    const msg = col.tasks.length
-      ? `"${col.title}" sütununda ${col.tasks.length} task var. Sütun və taskları silinsin?`
-      : `"${col.title}" sütunu silinsin?`;
-    if (confirm(msg)) {
-      board.columns = board.columns.filter(c => c.id !== col.id);
-      saveState();
-      renderBoard(channelId);
-      updateNavCounts();
-    }
-  });
+  header.append(titleInput, count);
 
-  header.append(titleInput, count, delBtn);
+  if (!external) {
+    const delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn danger';
+    delBtn.title = 'Sütunu sil';
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', () => {
+      const msg = col.tasks.length
+        ? `"${col.title}" sütununda ${col.tasks.length} task var. Sütun və taskları silinsin?`
+        : `"${col.title}" sütunu silinsin?`;
+      if (confirm(msg)) {
+        board.columns = board.columns.filter(c => c.id !== col.id);
+        saveState();
+        renderBoard(channelId);
+        updateNavCounts();
+      }
+    });
+    header.appendChild(delBtn);
+  }
+
   colEl.appendChild(header);
 
   // "Tamamlanmış" işarəsi — bu sütundakı tasklar hərarətə daxil edilmir
@@ -372,6 +424,11 @@ function buildColumn(channelId, col) {
   cb.checked = !!col.done;
   cb.addEventListener('change', () => {
     col.done = cb.checked;
+    if (external && col.externalId) {
+      // Xarici sütunlar hər yenilənmədə yenidən qurulur — seçimi konfiqdə saxla
+      const cfg = channelIntegration(channelId);
+      if (cfg) { cfg.doneMap = cfg.doneMap || {}; cfg.doneMap[col.externalId] = cb.checked; }
+    }
     saveState();
     updateNavCounts();
   });
@@ -381,58 +438,66 @@ function buildColumn(channelId, col) {
   // Kartlar
   const cards = document.createElement('div');
   cards.className = 'cards';
-  col.tasks.forEach(task => cards.appendChild(buildCard(channelId, col, task)));
+  col.tasks.forEach(task => cards.appendChild(buildCard(channelId, col, task, external)));
   colEl.appendChild(cards);
 
-  // Drag & drop hədəfi
-  colEl.addEventListener('dragover', e => {
-    e.preventDefault();
-    colEl.classList.add('drag-over');
-  });
-  colEl.addEventListener('dragleave', e => {
-    if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('drag-over');
-  });
-  colEl.addEventListener('drop', e => {
-    e.preventDefault();
-    colEl.classList.remove('drag-over');
-    const taskId = e.dataTransfer.getData('text/task-id');
-    if (taskId) moveTask(channelId, taskId, col.id);
-  });
+  if (!external) {
+    // Drag & drop hədəfi
+    colEl.addEventListener('dragover', e => {
+      e.preventDefault();
+      colEl.classList.add('drag-over');
+    });
+    colEl.addEventListener('dragleave', e => {
+      if (!colEl.contains(e.relatedTarget)) colEl.classList.remove('drag-over');
+    });
+    colEl.addEventListener('drop', e => {
+      e.preventDefault();
+      colEl.classList.remove('drag-over');
+      const taskId = e.dataTransfer.getData('text/task-id');
+      if (taskId) moveTask(channelId, taskId, col.id);
+    });
 
-  // Task əlavə et
-  const addBtn = document.createElement('button');
-  addBtn.className = 'add-card-btn';
-  addBtn.textContent = '+ Task əlavə et';
-  addBtn.addEventListener('click', () => {
-    const title = prompt('Yeni taskın adı:');
-    if (title && title.trim()) {
-      col.tasks.push({
-        id: uid(),
-        title: title.trim(),
-        desc: '',
-        deadline: null,
-        priority: 'medium',
-        createdAt: todayStr()
-      });
-      saveState();
-      renderBoard(channelId);
-      updateNavCounts();
-    }
-  });
-  colEl.appendChild(addBtn);
+    // Task əlavə et
+    const addBtn = document.createElement('button');
+    addBtn.className = 'add-card-btn';
+    addBtn.textContent = '+ Task əlavə et';
+    addBtn.addEventListener('click', () => {
+      const title = prompt('Yeni taskın adı:');
+      if (title && title.trim()) {
+        col.tasks.push({
+          id: uid(),
+          title: title.trim(),
+          desc: '',
+          deadline: null,
+          priority: 'medium',
+          createdAt: todayStr()
+        });
+        saveState();
+        renderBoard(channelId);
+        updateNavCounts();
+      }
+    });
+    colEl.appendChild(addBtn);
+  }
 
   return colEl;
 }
 
-function buildCard(channelId, col, task) {
+function buildCard(channelId, col, task, external) {
   const card = document.createElement('div');
-  card.className = 'card';
-  card.draggable = true;
+  card.className = 'card' + (external ? ' card-external' : '');
+  card.draggable = !external;
   card.dataset.taskId = task.id;
 
   const title = document.createElement('div');
   title.className = 'card-title';
   title.textContent = task.title;
+  if (external) {
+    const link = document.createElement('span');
+    link.className = 'card-link-hint';
+    link.textContent = ' ↗';
+    title.appendChild(link);
+  }
   card.appendChild(title);
 
   const meta = document.createElement('div');
@@ -452,14 +517,18 @@ function buildCard(channelId, col, task) {
   }
   if (meta.children.length) card.appendChild(meta);
 
-  card.addEventListener('click', () => openTaskModal(channelId, col.id, task.id));
-
-  card.addEventListener('dragstart', e => {
-    e.dataTransfer.setData('text/task-id', task.id);
-    e.dataTransfer.effectAllowed = 'move';
-    card.classList.add('dragging');
-  });
-  card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  if (external) {
+    card.title = 'Xarici sistemdə açmaq üçün klikləyin';
+    card.addEventListener('click', () => { if (task.url) window.open(task.url, '_blank'); });
+  } else {
+    card.addEventListener('click', () => openTaskModal(channelId, col.id, task.id));
+    card.addEventListener('dragstart', e => {
+      e.dataTransfer.setData('text/task-id', task.id);
+      e.dataTransfer.effectAllowed = 'move';
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  }
 
   return card;
 }
@@ -566,6 +635,257 @@ modalEl.addEventListener('click', e => { if (e.target === modalEl) closeTaskModa
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && !modalEl.classList.contains('hidden')) closeTaskModal();
 });
+
+// ---------------- Xarici inteqrasiyalar (Trello / Notion) ----------------
+
+const DONE_NAME_RX = /bitdi|done|tamam|hazır|complete|finish/i;
+
+function channelIntegration(channelId) {
+  return (state.integrations || {})[channelId] || null;
+}
+
+async function jsonOk(res) {
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+async function pullTrello(cfg) {
+  const auth = `key=${encodeURIComponent(cfg.key)}&token=${encodeURIComponent(cfg.token)}`;
+  const [lists, cards] = await Promise.all([
+    fetch(`https://api.trello.com/1/boards/${cfg.boardId}/lists?${auth}`).then(jsonOk),
+    fetch(`https://api.trello.com/1/boards/${cfg.boardId}/cards?fields=name,due,desc,idList,url&${auth}`).then(jsonOk)
+  ]);
+  return lists.map(l => ({
+    id: 'tr-' + l.id,
+    externalId: l.id,
+    title: l.name,
+    done: (cfg.doneMap && l.id in cfg.doneMap) ? cfg.doneMap[l.id] : DONE_NAME_RX.test(l.name),
+    tasks: cards.filter(c => c.idList === l.id).map(c => ({
+      id: 'tr-' + c.id,
+      title: c.name,
+      desc: c.desc || '',
+      deadline: c.due ? c.due.slice(0, 10) : null,
+      priority: 'medium',
+      url: c.url,
+      external: true
+    }))
+  }));
+}
+
+async function pullNotion(cfg) {
+  const base = (cfg.proxy || 'https://api.notion.com').replace(/\/+$/, '');
+  const headers = {
+    'Authorization': 'Bearer ' + cfg.token,
+    'Notion-Version': '2022-06-28',
+    'Content-Type': 'application/json'
+  };
+
+  // Bazanın strukturu: qruplaşdırma (status/select), tarix və başlıq sahələrini tap
+  const db = await fetch(base + '/v1/databases/' + cfg.dbId, { headers }).then(jsonOk);
+  let groupProp = null, datePropName = null, titlePropName = null;
+  for (const [name, p] of Object.entries(db.properties || {})) {
+    if (!groupProp && (p.type === 'status' || p.type === 'select')) groupProp = { name, type: p.type, options: (p[p.type] && p[p.type].options) || [] };
+    if (!datePropName && p.type === 'date') datePropName = name;
+    if (p.type === 'title') titlePropName = name;
+  }
+
+  // Bütün səhifələri çək (səhifələmə ilə)
+  const pages = [];
+  let cursor = null;
+  do {
+    const body = JSON.stringify(cursor ? { start_cursor: cursor, page_size: 100 } : { page_size: 100 });
+    const resp = await fetch(base + '/v1/databases/' + cfg.dbId + '/query', { method: 'POST', headers, body }).then(jsonOk);
+    pages.push(...resp.results);
+    cursor = resp.has_more ? resp.next_cursor : null;
+  } while (cursor);
+
+  const columns = (groupProp ? groupProp.options : []).map(o => ({
+    id: 'no-' + o.id,
+    externalId: o.id,
+    title: o.name,
+    done: (cfg.doneMap && o.id in cfg.doneMap) ? cfg.doneMap[o.id] : DONE_NAME_RX.test(o.name),
+    tasks: []
+  }));
+  const byTitle = {};
+  columns.forEach(c => { byTitle[c.title] = c; });
+  const noneCol = { id: 'no-none', externalId: 'none', title: 'Statussuz', done: false, tasks: [] };
+
+  pages.forEach(pg => {
+    const props = pg.properties || {};
+    const titleParts = (titlePropName && props[titlePropName] && props[titlePropName].title) || [];
+    const title = titleParts.map(t => t.plain_text).join('') || '(adsız)';
+    const groupVal = groupProp && props[groupProp.name] ? props[groupProp.name][groupProp.type] : null;
+    const dateVal = datePropName && props[datePropName] && props[datePropName].date ? props[datePropName].date.start : null;
+    const task = {
+      id: 'no-' + pg.id,
+      title,
+      desc: '',
+      deadline: dateVal ? dateVal.slice(0, 10) : null,
+      priority: 'medium',
+      url: pg.url,
+      external: true
+    };
+    const col = (groupVal && byTitle[groupVal.name]) ? byTitle[groupVal.name] : noneCol;
+    col.tasks.push(task);
+  });
+
+  if (noneCol.tasks.length) columns.push(noneCol);
+  return columns;
+}
+
+async function externalPull(channelId, manual) {
+  const cfg = channelIntegration(channelId);
+  if (!cfg) return;
+  try {
+    const columns = cfg.type === 'trello' ? await pullTrello(cfg) : await pullNotion(cfg);
+    state.boards[channelId] = { columns, external: true, fetchedAt: Date.now() };
+    saveState();
+    if (activeView === channelId) renderBoard(channelId);
+    if (activeView === 'home') renderHome();
+    updateNavCounts();
+  } catch (e) {
+    if (manual) alert('İnteqrasiya xətası (' + channelId + '): ' + e.message +
+      '\n\nToken/açar düzgündürmü? Notion üçün proxy işləyirmi?');
+  }
+}
+
+function pullAllExternal() {
+  CHANNELS.forEach(ch => { if (channelIntegration(ch.id)) externalPull(ch.id); });
+}
+
+// ---------------- İnteqrasiya pəncərəsi ----------------
+
+const intModal = document.getElementById('int-modal');
+let intCtx = null; // hazırda konfiqurasiya olunan kanal
+
+function openIntModal(channelId) {
+  intCtx = channelId;
+  const ch = CHANNELS.find(c => c.id === channelId);
+  document.getElementById('int-title').textContent = ch.name + ' — inteqrasiya';
+  const cfg = channelIntegration(channelId);
+
+  document.getElementById('int-type').value = cfg ? cfg.type : '';
+  document.getElementById('tr-key').value = cfg && cfg.type === 'trello' ? cfg.key : '';
+  document.getElementById('tr-token').value = cfg && cfg.type === 'trello' ? cfg.token : '';
+  document.getElementById('tr-board').innerHTML = cfg && cfg.type === 'trello'
+    ? `<option value="${cfg.boardId}" selected>${cfg.boardName || cfg.boardId}</option>` : '';
+  document.getElementById('no-token').value = cfg && cfg.type === 'notion' ? cfg.token : '';
+  document.getElementById('no-db').value = cfg && cfg.type === 'notion' ? cfg.dbId : '';
+  document.getElementById('no-proxy').value = cfg && cfg.type === 'notion' ? (cfg.proxy || '') : '';
+
+  document.getElementById('int-remove').classList.toggle('hidden', !cfg);
+  setIntStatus(cfg ? 'Bu kanal hazırda ' + (cfg.type === 'trello' ? 'Trello' : 'Notion') + '-a bağlıdır.' : '');
+  updateIntSections();
+  intModal.classList.remove('hidden');
+}
+
+function closeIntModal() { intModal.classList.add('hidden'); intCtx = null; }
+
+function setIntStatus(text, isError) {
+  const el = document.getElementById('int-status');
+  el.textContent = text;
+  el.classList.toggle('error', !!isError);
+}
+
+function updateIntSections() {
+  const type = document.getElementById('int-type').value;
+  document.getElementById('int-trello').classList.toggle('hidden', type !== 'trello');
+  document.getElementById('int-notion').classList.toggle('hidden', type !== 'notion');
+}
+
+async function loadTrelloBoards() {
+  const key = document.getElementById('tr-key').value.trim();
+  const token = document.getElementById('tr-token').value.trim();
+  if (!key || !token) { setIntStatus('Əvvəlcə API Key və Token daxil edin.', true); return; }
+  setIntStatus('Lövhələr yüklənir...');
+  try {
+    const boards = await fetch(`https://api.trello.com/1/members/me/boards?fields=name&key=${encodeURIComponent(key)}&token=${encodeURIComponent(token)}`).then(jsonOk);
+    const sel = document.getElementById('tr-board');
+    sel.innerHTML = '';
+    boards.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = b.name;
+      sel.appendChild(opt);
+    });
+    setIntStatus(boards.length + ' lövhə tapıldı — birini seçib "Yadda saxla" basın.');
+  } catch (e) {
+    setIntStatus('Trello-ya qoşulmaq alınmadı: ' + e.message, true);
+  }
+}
+
+async function saveIntegration() {
+  const channelId = intCtx;
+  const type = document.getElementById('int-type').value;
+
+  if (!type) {
+    removeIntegration(true);
+    return;
+  }
+
+  let cfg;
+  if (type === 'trello') {
+    const sel = document.getElementById('tr-board');
+    cfg = {
+      type: 'trello',
+      key: document.getElementById('tr-key').value.trim(),
+      token: document.getElementById('tr-token').value.trim(),
+      boardId: sel.value,
+      boardName: sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : '',
+      doneMap: (channelIntegration(channelId) || {}).doneMap || {}
+    };
+    if (!cfg.key || !cfg.token || !cfg.boardId) { setIntStatus('API Key, Token daxil edin və lövhə seçin.', true); return; }
+  } else {
+    cfg = {
+      type: 'notion',
+      token: document.getElementById('no-token').value.trim(),
+      dbId: document.getElementById('no-db').value.trim(),
+      proxy: document.getElementById('no-proxy').value.trim(),
+      doneMap: (channelIntegration(channelId) || {}).doneMap || {}
+    };
+    if (!cfg.token || !cfg.dbId) { setIntStatus('Token və Database ID daxil edin.', true); return; }
+  }
+
+  // Daxili taskları itirməmək üçün xəbərdarlıq
+  const board = state.boards[channelId];
+  if (!board.external && board.columns.some(c => c.tasks.length)) {
+    if (!confirm('Bu kanalın daxili taskları xarici sistemdəki lövhə ilə əvəz olunacaq. Davam edilsin?')) return;
+  }
+
+  setIntStatus('Qoşulma yoxlanılır...');
+  try {
+    const columns = cfg.type === 'trello' ? await pullTrello(cfg) : await pullNotion(cfg);
+    state.integrations[channelId] = cfg;
+    state.boards[channelId] = { columns, external: true, fetchedAt: Date.now() };
+    saveState();
+    closeIntModal();
+    renderCurrent();
+  } catch (e) {
+    setIntStatus('Qoşulmaq alınmadı: ' + e.message + (type === 'notion' ? ' — Proxy URL düzgündürmü? Database inteqrasiyaya "Connect" olunubmu?' : ' — Key/Token düzgündürmü?'), true);
+  }
+}
+
+function removeIntegration(silent) {
+  const channelId = intCtx;
+  if (!channelIntegration(channelId)) { closeIntModal(); return; }
+  if (!silent && !confirm('İnteqrasiya silinsin? Kanal boş daxili kanbana qayıdacaq (xarici sistemdəki məlumatlara toxunulmur).')) return;
+  delete state.integrations[channelId];
+  state.boards[channelId] = defaultBoard();
+  saveState();
+  closeIntModal();
+  renderCurrent();
+}
+
+document.getElementById('int-type').addEventListener('change', updateIntSections);
+document.getElementById('tr-load').addEventListener('click', loadTrelloBoards);
+document.getElementById('int-save').addEventListener('click', saveIntegration);
+document.getElementById('int-remove').addEventListener('click', () => removeIntegration(false));
+document.getElementById('int-close').addEventListener('click', closeIntModal);
+intModal.addEventListener('click', e => { if (e.target === intModal) closeIntModal(); });
+
+// Xarici sistemlər müntəzəm yoxlanılır
+setInterval(() => { if (!document.hidden) pullAllExternal(); }, 5 * 60 * 1000);
+window.addEventListener('focus', () => pullAllExternal());
 
 // ---------------- Cihazlar arası sinxronizasiya (GitHub Gist) ----------------
 
@@ -786,4 +1106,5 @@ setInterval(() => {
   showView('home');
   updateSyncIndicator();
   if (syncConnected()) syncPull();
+  pullAllExternal();
 })();

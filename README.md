@@ -75,6 +75,74 @@ Münaqişə halında ən son dəyişiklik qalib gəlir (last-write-wins).
 ⚠️ Token brauzerin yaddaşında saxlanılır. Ortaq istifadə olunan kompüterdə
 qoşulmayın və tokenə yalnız **gist** icazəsi verin.
 
+## Xarici sistemlərlə inteqrasiya (Trello / Notion)
+
+Hər kanalı ayrıca Trello lövhəsinə və ya Notion bazasına bağlamaq olar:
+qeydləri orada aparırsınız, bu tətbiq isə izləmə mərkəzidir. Bağlanmış kanalın
+tasklarını burada redaktə etmək olmur — taska klik etdikdə xarici sistemdə açılır.
+Termometrlər xarici taskların deadline-larına əsasən hesablanır.
+
+Qoşulmuş kanallar açılışda, pəncərə fokusa gələndə və hər 5 dəqiqədən bir
+avtomatik yenilənir; kanalın üstündəki **⟳ Yenilə** düyməsi ilə dərhal da yeniləmək olar.
+
+### Trello (birbaşa işləyir, əlavə heç nə lazım deyil)
+
+1. Kanalın kanban səhifəsində **🔗 İnteqrasiya** düyməsinə basın, sistem olaraq **Trello** seçin
+2. **trello.com/app-key** səhifəsindən **API Key**-i kopyalayın
+3. Elə həmin səhifədəki **Token** linki ilə token yaradıb kopyalayın
+4. Hər ikisini pəncərəyə yapışdırın → **Lövhələri yüklə** → lövhəni seçin → **Yadda saxla**
+
+Trello siyahıları sütun kimi, kartlar (due date-ləri ilə) task kimi görünür.
+Adı "Done/Bitdi/Tamam/Hazır" olan siyahılar avtomatik "tamamlanmış" sayılır —
+istənilən sütunun altındakı işarə ilə bunu dəyişmək olar.
+
+### Notion (bir dəfəlik pulsuz proxy quraşdırması lazımdır)
+
+Notion API brauzerdən birbaşa müraciətə icazə vermir (CORS). Həll: pulsuz
+Cloudflare Worker körpüsü (kredit kartı istəmir, gündə 100.000 sorğu pulsuzdur):
+
+1. **dash.cloudflare.com** → qeydiyyat → **Workers & Pages** → **Create Worker** → **Deploy**
+2. **Edit code** basıb aşağıdakı kodu yapışdırın → **Deploy**:
+
+```js
+export default {
+  async fetch(request) {
+    const cors = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
+      'Access-Control-Allow-Headers': 'Authorization,Content-Type,Notion-Version'
+    };
+    if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
+    const url = new URL(request.url);
+    const resp = await fetch('https://api.notion.com' + url.pathname + url.search, {
+      method: request.method,
+      headers: {
+        'Authorization': request.headers.get('Authorization') || '',
+        'Notion-Version': request.headers.get('Notion-Version') || '2022-06-28',
+        'Content-Type': 'application/json'
+      },
+      body: ['GET', 'HEAD'].includes(request.method) ? undefined : await request.text()
+    });
+    return new Response(await resp.text(), {
+      status: resp.status,
+      headers: { ...cors, 'Content-Type': 'application/json' }
+    });
+  }
+};
+```
+
+3. Worker-in ünvanını kopyalayın (məs. `https://adiniz.workers.dev`)
+4. Notion tərəfdə: **notion.so/my-integrations** → **New integration** → tokeni kopyalayın
+5. Task bazanızın səhifəsində **⋯ → Connections** → yaratdığınız inteqrasiyanı qoşun
+6. Bazanın linkindəki 32 simvolluq **Database ID**-ni götürün
+7. Tətbiqdə **🔗 İnteqrasiya** → **Notion** → token, Database ID və Proxy URL-i daxil edin → **Yadda saxla**
+
+Bazanın **status/select** sahəsi sütunlara, **date** sahəsi deadline-a,
+başlıq sahəsi task adına çevrilir.
+
+⚠️ İnteqrasiya açarları da (Gist sinxronu aktivdirsə) sizin gizli Gist-inizə
+sinxronlaşır ki, bütün cihazlarınızda işləsin. Açarları heç kimlə bölüşməyin.
+
 ## Desktop versiya — quraşdırma və işə salma
 
 ```bash

@@ -86,6 +86,84 @@
     </div>
   </div>
 
+  <!-- İnteqrasiya pop-up -->
+  <div class="modal-overlay hidden" id="int-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-static-title" id="int-title">İnteqrasiya</div>
+        <button class="icon-btn modal-close" id="int-close" title="Bağla">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="sync-info">
+          Bu kanalın tasklarını xarici sistemdən avtomatik oxu: qeydləri orada aparırsınız,
+          izləməni burada. Tasklar oxunma rejimindədir — klik etdikdə xarici sistemdə açılır.
+        </p>
+        <label class="field">
+          <span class="field-label">Sistem</span>
+          <select id="int-type">
+            <option value="">Yoxdur — daxili kanban</option>
+            <option value="trello">Trello</option>
+            <option value="notion">Notion</option>
+          </select>
+        </label>
+
+        <div id="int-trello" class="hidden">
+          <div class="field-row">
+            <label class="field">
+              <span class="field-label">API Key</span>
+              <input type="text" id="tr-key" placeholder="trello.com/app-key">
+            </label>
+            <label class="field">
+              <span class="field-label">Token</span>
+              <input type="password" id="tr-token">
+            </label>
+          </div>
+          <div class="field-row int-board-row">
+            <label class="field">
+              <span class="field-label">Lövhə (board)</span>
+              <select id="tr-board"></select>
+            </label>
+            <button class="btn btn-secondary" id="tr-load">Lövhələri yüklə</button>
+          </div>
+          <p class="int-hint">
+            Key: <strong>trello.com/app-key</strong> səhifəsində. Elə oradakı
+            "Token" linki ilə token da yaradın. Sonra "Lövhələri yüklə" basıb lövhəni seçin.
+          </p>
+        </div>
+
+        <div id="int-notion" class="hidden">
+          <label class="field">
+            <span class="field-label">Integration Token</span>
+            <input type="password" id="no-token" placeholder="ntn_... və ya secret_...">
+          </label>
+          <div class="field-row">
+            <label class="field">
+              <span class="field-label">Database ID</span>
+              <input type="text" id="no-db" placeholder="Bazanın linkindəki 32 simvolluq kod">
+            </label>
+            <label class="field">
+              <span class="field-label">Proxy URL</span>
+              <input type="text" id="no-proxy" placeholder="https://....workers.dev">
+            </label>
+          </div>
+          <p class="int-hint">
+            Token: <strong>notion.so/my-integrations</strong> → New integration.
+            Bazanı inteqrasiyaya bağlamağı unutmayın (baza səhifəsində ⋯ → Connections).
+            Notion brauzerdən birbaşa qoşulmağa icazə vermir — README-dəki pulsuz
+            Cloudflare Worker proxy quraşdırmasını edin (5 dəqiqə).
+          </p>
+        </div>
+
+        <div class="sync-status" id="int-status"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger hidden" id="int-remove">İnteqrasiyanı sil</button>
+        <span></span>
+        <button class="btn btn-primary" id="int-save">Yadda saxla</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Sinxronizasiya pop-up -->
   <div class="modal-overlay hidden" id="sync-modal">
     <div class="modal">

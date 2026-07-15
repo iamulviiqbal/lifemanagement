@@ -87,10 +87,15 @@ avtomatik yenilənir; kanalın üstündəki **⟳ Yenilə** düyməsi ilə dərh
 
 ### Trello (birbaşa işləyir, əlavə heç nə lazım deyil)
 
-1. Kanalın kanban səhifəsində **🔗 İnteqrasiya** düyməsinə basın, sistem olaraq **Trello** seçin
-2. **trello.com/app-key** səhifəsindən **API Key**-i kopyalayın
-3. Elə həmin səhifədəki **Token** linki ilə token yaradıb kopyalayın
-4. Hər ikisini pəncərəyə yapışdırın → **Lövhələri yüklə** → lövhəni seçin → **Yadda saxla**
+1. **trello.com/power-ups/admin** səhifəsini açın → **New** → Power-Up yaradın
+   (ad sərbəstdir, məs. "lifemanagement"; öz workspace-inizi seçin; Iframe connector URL boş qala bilər)
+2. Yaranan Power-Up-ın səhifəsində soldan **API key** bölməsinə keçin →
+   **Generate a new API key** → açarı kopyalayın
+3. API key-in yanındakı **Token** linkinə basın → icazə verin → çıxan tokeni kopyalayın
+4. Kanalın kanban səhifəsində **🔗 İnteqrasiya** → **Trello** → key və tokeni yapışdırın →
+   **Lövhələri yüklə** → lövhəni seçin → **Yadda saxla**
+
+Eyni key/token bütün kanallar üçün işləyir — hər kanalda yalnız fərqli lövhə seçilir.
 
 Trello siyahıları sütun kimi, kartlar (due date-ləri ilə) task kimi görünür.
 Adı "Done/Bitdi/Tamam/Hazır" olan siyahılar avtomatik "tamamlanmış" sayılır —

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Life Management</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <!-- Yan panel -->
+    <aside class="sidebar">
+      <div class="sidebar-title">Life Management</div>
+      <nav class="nav" id="nav">
+        <button class="nav-item active" data-view="home">
+          <span class="nav-icon">◉</span> Ana Səhifə
+        </button>
+        <div class="nav-section">Kanallar</div>
+        <!-- kanal düymələri JS ilə doldurulur -->
+      </nav>
+      <div class="sidebar-footer" id="today-date"></div>
+    </aside>
+
+    <!-- Əsas hissə -->
+    <main class="main" id="main">
+      <!-- Hissə 1: Ana Səhifə / Highlights -->
+      <section class="view view-home active" id="view-home">
+        <header class="view-header">
+          <h1>Ana Səhifə</h1>
+          <p class="subtitle" id="home-subtitle">Bütün kanalların gündəlik xülasəsi</p>
+        </header>
+        <div class="thermo-grid" id="thermo-grid"></div>
+        <div class="home-summary" id="home-summary"></div>
+      </section>
+
+      <!-- Hissə 2: Kanban görünüşləri JS ilə yaradılır -->
+    </main>
+  </div>
+
+  <!-- Task redaktə pop-up -->
+  <div class="modal-overlay hidden" id="task-modal">
+    <div class="modal">
+      <div class="modal-header">
+        <input type="text" class="modal-title-input" id="modal-title" placeholder="Task adı">
+        <button class="icon-btn modal-close" id="modal-close" title="Bağla">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span class="field-label">Təsvir</span>
+          <textarea id="modal-desc" rows="4" placeholder="Ətraflı qeydlər..."></textarea>
+        </label>
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Deadline</span>
+            <input type="date" id="modal-deadline">
+          </label>
+          <label class="field">
+            <span class="field-label">Prioritet</span>
+            <select id="modal-priority">
+              <option value="low">Aşağı</option>
+              <option value="medium">Orta</option>
+              <option value="high">Yüksək</option>
+            </select>
+          </label>
+          <label class="field">
+            <span class="field-label">Sütun</span>
+            <select id="modal-column"></select>
+          </label>
+        </div>
+        <div class="modal-meta" id="modal-meta"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="modal-delete">Sil</button>
+        <button class="btn btn-primary" id="modal-save">Yadda saxla</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

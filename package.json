@@ -1,0 +1,35 @@
+{
+  "name": "lifemanagement",
+  "productName": "Life Management",
+  "version": "1.0.0",
+  "description": "4 kanallı həyat idarəetmə desktop tətbiqi — Azerconnect, Azliderqrup, Brendinq, Şəxsi həyat",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "author": "Ismayil Mirili",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "az.mirili.lifemanagement",
+    "productName": "Life Management",
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
